@@ -349,7 +349,7 @@ class H2BNN(base_config_generator):
 
         # train BNN here
         bnn = Bohamiann(get_network=get_default_network, use_double_precision=False)
-        bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=10000, num_steps=10110)
+        bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=5000, num_steps=5110)
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
