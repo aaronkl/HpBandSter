@@ -109,7 +109,7 @@ def get_default_network(input_dimensionality: int) -> torch.nn.Module:
 
     def init_weights(module):
         if type(module) == AppendLayer:
-            nn.init.constant_(module.bias, val=np.log(1e-4))
+            nn.init.constant_(module.bias, val=np.log(1e-3))
         elif type(module) == nn.Linear:
             nn.init.kaiming_normal_(module.weight, mode="fan_in", nonlinearity="linear")
             nn.init.constant_(module.bias, val=0.0)
@@ -349,7 +349,13 @@ class H2BNN(base_config_generator):
 
         # train BNN here
         bnn = Bohamiann(get_network=get_default_network, use_double_precision=False)
-        bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=5000, num_steps=5110)
+
+        # train only on good points
+        idx = np.argsort(y_train[:, 0])[:100]
+        x_train = x_train[idx]
+        y_train = y_train[idx]
+
+        bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=20000, num_steps=20110)
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
