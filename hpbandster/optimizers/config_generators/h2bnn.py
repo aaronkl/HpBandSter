@@ -14,14 +14,14 @@ from hpbandster.core.base_config_generator import base_config_generator
 from pybnn.bohamiann import Bohamiann
 
 
-def thompson_sampling(candidates, model, budget):
+def thompson_sampling(candidates, model, budget, idx):
     x = np.concatenate((candidates, np.ones([candidates.shape[0], 1]) * budget), axis=1)
 
-    mu, var, samples = model.predict(x, return_individual_predictions=True)
-    idx = np.random.randint(samples.shape[0])
+    # mu, var, samples = model.predict(x, return_individual_predictions=True)
 
-    return samples[idx]
-
+    # return samples[idx]
+    f = model.predict_single(x, sample_index=idx)
+    return f[0][0]
 
 class Model(object):
     def __init__(self):
@@ -78,7 +78,7 @@ def regularized_evolution(acq, cs, cycles, population_size, sample_size):
             sample.append(candidate)
 
         # The parent is the best model in the sample.
-        parent = max(sample, key=lambda i: i.accuracy)
+        parent = min(sample, key=lambda i: i.accuracy)
 
         # Create the child model and store it.
         child = Model()
@@ -90,7 +90,7 @@ def regularized_evolution(acq, cs, cycles, population_size, sample_size):
         # Remove the oldest model.
         population.popleft()
     cands_value = [i.accuracy for i in history]
-    best = np.argmax(cands_value)
+    best = np.argmin(cands_value)
     x_new = history[best].arch
     return x_new
 
@@ -175,8 +175,9 @@ class H2BNN(base_config_generator):
         self.configs = dict()
         self.losses = dict()
 
-        self.bnn = None
-
+        self.bnn = Bohamiann(get_network=get_default_network, use_double_precision=False)
+        self.is_training = False
+        self.n_update = 10
     # def largest_budget_with_model(self):
     #     if len(self.kde_models) == 0:
     #         return (-np.inf)
@@ -203,7 +204,7 @@ class H2BNN(base_config_generator):
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
-        if self.bnn is None or np.random.rand() < self.random_fraction:
+        if not self.is_training or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
             info_dict['model_based_pick'] = False
 
@@ -212,12 +213,12 @@ class H2BNN(base_config_generator):
 
                 # Thompson sampling
                 # if args.acquisition == "ts":
-                acquisition = partial(thompson_sampling, model=self.bnn, budget=budget)
+                idx = np.random.randint(len(self.bnn.sampled_weights))
+                acquisition = partial(thompson_sampling, model=self.bnn, budget=budget, idx=idx)
                 # elif args.acquisition == "ucb":
                 # acquisition = partial(ucb, model=bnn)
                 # elif args.acquisition == "ei":
                 # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
-
                 sample = regularized_evolution(acq=acquisition, cs=self.configspace,
                                                cycles=1000, population_size=100, sample_size=10)
 
@@ -287,7 +288,6 @@ class H2BNN(base_config_generator):
         """
 
         super().new_result(job)
-
         if job.result is None:
             # One could skip crashed results, but we decided
             # assign a +inf loss and count them as bad configurations
@@ -342,20 +342,24 @@ class H2BNN(base_config_generator):
             configs = np.array(self.configs[b])
             configs = np.concatenate((configs, np.ones([configs.shape[0], 1]) * b), axis=1)
             x_train.extend(configs)
-            y_train.extend(self.losses[b])
+            l = [li[0] for li in self.losses[b]]
+            y_train.extend(l)  # take only first evaluated data point
 
         x_train = np.array(x_train)
+
         y_train = np.array(y_train)
-
-        # train BNN here
-        bnn = Bohamiann(get_network=get_default_network, use_double_precision=False)
-
+        # y_train = y_train[y_train > 1] = 1
         # train only on good points
-        idx = np.argsort(y_train[:, 0])[:100]
-        x_train = x_train[idx]
-        y_train = y_train[idx]
+        # idx = np.argsort(y_train[:, 0])[:100]
+        # x_train = x_train[idx]
+        # y_train = y_train[idx]
+        print(y_train.shape, x_train.shape)
+        if y_train.shape[0] % self.n_update == 0:
 
-        bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=20000, num_steps=20110)
+            self.bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=15000, num_steps=30000, continue_training=False)
+            self.is_training = True
+
+        print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train))
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
