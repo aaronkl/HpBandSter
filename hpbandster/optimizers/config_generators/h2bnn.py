@@ -357,8 +357,8 @@ class H2BNN(base_config_generator):
         # y_train = y_train[idx]
         print(y_train.shape, x_train.shape)
         if y_train.shape[0] % self.n_update == 0:
-            self.bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=15000, num_steps=30000,
-                           continue_training=False)
+            self.bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=x_train.shape[0] * 100,
+                           num_steps=x_train.shape[0] * 100 + 10000, keep_every=100, continue_training=False)
             self.is_training = True
 
         print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train))
