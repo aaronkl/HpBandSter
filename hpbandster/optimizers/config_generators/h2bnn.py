@@ -23,6 +23,7 @@ def thompson_sampling(candidates, model, budget, idx):
     f = model.predict_single(x, sample_index=idx)
     return f[0][0]
 
+
 class Model(object):
     def __init__(self):
         self.arch = None
@@ -178,6 +179,7 @@ class H2BNN(base_config_generator):
         self.bnn = Bohamiann(get_network=get_default_network, use_double_precision=False)
         self.is_training = False
         self.n_update = 10
+
     # def largest_budget_with_model(self):
     #     if len(self.kde_models) == 0:
     #         return (-np.inf)
@@ -204,7 +206,7 @@ class H2BNN(base_config_generator):
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
-        if not self.is_training or np.random.rand() < self.random_fraction:
+        if self.is_training == False or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
             info_dict['model_based_pick'] = False
 
@@ -355,8 +357,8 @@ class H2BNN(base_config_generator):
         # y_train = y_train[idx]
         print(y_train.shape, x_train.shape)
         if y_train.shape[0] % self.n_update == 0:
-
-            self.bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=15000, num_steps=30000, continue_training=False)
+            self.bnn.train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=15000, num_steps=30000,
+                           continue_training=False)
             self.is_training = True
 
         print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train))
