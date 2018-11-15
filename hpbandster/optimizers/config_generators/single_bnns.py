@@ -10,12 +10,12 @@ import ConfigSpace.util
 import numpy as np
 import torch
 import torch.nn as nn
-from hpbandster.core.base_config_generator import base_config_generator
 from pybnn.bohamiann import Bohamiann
+
+from hpbandster.core.base_config_generator import base_config_generator
 
 
 def thompson_sampling(candidates, model, idx):
-
     f = model.predict_single(candidates, sample_index=idx)
     return f[0][0]
 
@@ -176,10 +176,10 @@ class SingleBNNs(base_config_generator):
         self.is_training = False
         self.n_update = 10
 
-    # def largest_budget_with_model(self):
-    #     if len(self.kde_models) == 0:
-    #         return (-np.inf)
-    #     return (max(self.kde_models.keys()))
+    def largest_budget_with_model(self):
+        if len(self.bnn_models) == 0:
+            return -np.inf
+        return max(self.bnn_models.keys())
 
     def get_config(self, budget):
         """
@@ -341,11 +341,12 @@ class SingleBNNs(base_config_generator):
 
         print(y_train.shape, x_train.shape)
         if y_train.shape[0] % self.n_update == 0:
-
             self.bnn_models[budget] = Bohamiann(get_network=get_default_network, use_double_precision=False)
 
-            self.bnn_models[budget].train(x_train, y_train, verbose=True, lr=1e-5, num_burn_in_steps=x_train.shape[0] * 100,
-                           num_steps=x_train.shape[0] * 100 + 10000, keep_every=100, continue_training=False)
+            self.bnn_models[budget].train(x_train, y_train, verbose=True, lr=1e-5,
+                                          num_burn_in_steps=x_train.shape[0] * 100,
+                                          num_steps=x_train.shape[0] * 100 + 10000, keep_every=100,
+                                          continue_training=False)
 
         print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train), budget)
 
