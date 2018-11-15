@@ -127,6 +127,8 @@ class SingleBNNs(Master):
         max_budget = self.max_budget
         eta = self.eta
 
+        if min_budget == max_budget:
+            self.config_generator.n_update = 1
         # precompute some HB stuff
         max_SH_iter = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
         budgets = max_budget * np.power(eta, -np.linspace(max_SH_iter - 1, 0, max_SH_iter))
