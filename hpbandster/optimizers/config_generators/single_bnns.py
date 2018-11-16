@@ -20,6 +20,11 @@ def thompson_sampling(candidates, model, idx):
     return f[0][0]
 
 
+def ucb(candidates, model):
+    mu, var = model.predict(candidates)
+    return mu[0] + np.sqrt(var[0])
+
+
 class Model(object):
     def __init__(self):
         self.arch = None
@@ -212,10 +217,10 @@ class SingleBNNs(base_config_generator):
                 budget = max(self.bnn_models.keys())
                 # Thompson sampling
                 # if args.acquisition == "ts":
-                idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
-                acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
+                # idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
+                # acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
                 # elif args.acquisition == "ucb":
-                # acquisition = partial(ucb, model=bnn)
+                acquisition = partial(ucb, model=self.bnn_models[budget])
                 # elif args.acquisition == "ei":
                 # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
                 sample = regularized_evolution(acq=acquisition, cs=self.configspace,
