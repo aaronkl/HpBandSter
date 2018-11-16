@@ -220,7 +220,7 @@ class SingleBNNs(base_config_generator):
                 # idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
                 # acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
                 # elif args.acquisition == "ucb":
-                acquisition = partial(ucb, model=self.bnn_models[budget])
+                acquisition = partial(lcb, model=self.bnn_models[budget])
                 # elif args.acquisition == "ei":
                 # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
                 sample = regularized_evolution(acq=acquisition, cs=self.configspace,
