@@ -20,9 +20,9 @@ def thompson_sampling(candidates, model, idx):
     return f[0][0]
 
 
-def ucb(candidates, model):
+def lcb(candidates, model):
     mu, var = model.predict(candidates)
-    return mu[0] + np.sqrt(var[0])
+    return mu[0] - np.sqrt(var[0])
 
 
 class Model(object):
