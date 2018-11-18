@@ -111,7 +111,7 @@ def get_default_network(input_dimensionality: int) -> torch.nn.Module:
 
     def init_weights(module):
         if type(module) == AppendLayer:
-            nn.init.constant_(module.bias, val=np.log(1e-3))
+            nn.init.constant_(module.bias, val=np.log(1e-4))
         elif type(module) == nn.Linear:
             nn.init.kaiming_normal_(module.weight, mode="fan_in", nonlinearity="linear")
             nn.init.constant_(module.bias, val=0.0)
@@ -217,10 +217,10 @@ class SingleBNNs(base_config_generator):
                 budget = max(self.bnn_models.keys())
                 # Thompson sampling
                 # if args.acquisition == "ts":
-                # idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
-                # acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
+                idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
+                acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
                 # elif args.acquisition == "ucb":
-                acquisition = partial(lcb, model=self.bnn_models[budget])
+                # acquisition = partial(lcb, model=self.bnn_models[budget])
                 # elif args.acquisition == "ei":
                 # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
                 sample = regularized_evolution(acq=acquisition, cs=self.configspace,
