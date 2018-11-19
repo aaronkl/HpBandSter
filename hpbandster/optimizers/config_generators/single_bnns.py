@@ -111,7 +111,7 @@ def get_default_network(input_dimensionality: int) -> torch.nn.Module:
 
     def init_weights(module):
         if type(module) == AppendLayer:
-            nn.init.constant_(module.bias, val=np.log(1e-4))
+            nn.init.constant_(module.bias, val=np.log(1e-3))
         elif type(module) == nn.Linear:
             nn.init.kaiming_normal_(module.weight, mode="fan_in", nonlinearity="linear")
             nn.init.constant_(module.bias, val=0.0)
@@ -207,7 +207,7 @@ class SingleBNNs(base_config_generator):
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
-        if len(self.bnn_models.keys()) == 0 or np.random.rand() < self.random_fraction:
+        if len(self.bnn_models.keys()) == 0: # or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
             info_dict['model_based_pick'] = False
 
