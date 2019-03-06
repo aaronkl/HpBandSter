@@ -1,17 +1,13 @@
-import collections
-import random
 import traceback
-from copy import deepcopy
 from functools import partial
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
 import ConfigSpace.util as util
 import numpy as np
-
-from robo.models.random_forest import RandomForest
-
 from hpbandster.core.base_config_generator import base_config_generator
+from robo.models.random_forest import RandomForest
+from scipy.stats import norm
 
 
 def local_search(f, x_init, n_steps):
@@ -24,16 +20,36 @@ def local_search(f, x_init, n_steps):
         for n in util.get_one_exchange_neighbourhood(x_init, np.random.randint(100000)):
             nbs.append(n)
             f_nbs.append(f(n.get_array()[None, :])[0])
-        best = np.argmin(f_nbs)
+
+        # check whether we improved
+        best = np.argmax(f_nbs)
+
         if f_nbs[best] > incumbent_value:
+
             incumbent = nbs[best]
             incumbent_value = f_nbs[best]
-        x_init = nbs[best]
+            # jump to the next neighbour
+            x_init = nbs[best]
+        else:
+            # in case we converged, stop the local search
+            break
+
     return incumbent, incumbent_value
+
 
 def lcb(candidates, model):
     mu, var = model.predict(candidates)
-    return mu[0] - np.sqrt(var[0])
+    return -(mu[0] - np.sqrt(var[0]))
+
+
+def expected_improvement(candidates, model, y_star):
+    mu, var = model.predict(candidates)
+
+    s = np.sqrt(var)
+    diff = (y_star - mu) / s
+    f = s * (diff * norm.cdf(diff) + norm.pdf(diff))
+
+    return f
 
 
 class RF(base_config_generator):
@@ -68,7 +84,7 @@ class RF(base_config_generator):
 
         self.rf_models = dict()
         self.is_training = False
-        self.n_update = 10
+        self.n_update = 1
 
     def largest_budget_with_model(self):
         if len(self.rf_models) == 0:
@@ -96,7 +112,7 @@ class RF(base_config_generator):
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
-        if len(self.rf_models.keys()) == 0: # or np.random.rand() < self.random_fraction:
+        if len(self.rf_models.keys()) == 0:  # or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
             info_dict['model_based_pick'] = False
 
@@ -109,10 +125,22 @@ class RF(base_config_generator):
                 # idx = np.random.randint(len(self.rf_models[budget].sampled_weights))
                 # acquisition = partial(thompson_sampling, model=self.rf_models[budget], idx=idx)
                 # elif args.acquisition == "ucb":
-                acquisition = partial(lcb, model=self.rf_models[budget])
+                # acquisition = partial(lcb, model=self.rf_models[budget])
                 # elif args.acquisition == "ei":
-                # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
-                sample, _ = local_search(acquisition, self.configspace.sample_configuration, n_steps=100)
+                acquisition = partial(expected_improvement, model=self.rf_models[budget],
+                                      y_star=np.min(self.rf_models[budget].y))
+
+                candidates = []
+                cand_values = []
+                for n in range(10):
+                    x_new, acq_val = local_search(acquisition,
+                                                  x_init=self.configspace.sample_configuration(),
+                                                  n_steps=10)
+                    candidates.append(x_new)
+                    cand_values.append(acq_val)
+
+                best = np.argmax(cand_values)
+                sample = candidates[best]
 
                 sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
                     configuration_space=self.configspace,
@@ -208,9 +236,9 @@ class RF(base_config_generator):
             self.losses[budget][i].append(loss)
             print('-' * 50)
             print('ran config %s with loss %f again' % (conf, loss))
-        else:
-            self.configs[budget].append(conf)
-            self.losses[budget].append([loss])
+        # else:
+        self.configs[budget].append(conf)
+        self.losses[budget].append([loss])
 
         # skip model building:
 
@@ -232,12 +260,9 @@ class RF(base_config_generator):
         l = [li[0] for li in self.losses[budget]]
         y_train = np.array(l)
 
-        print(y_train.shape, x_train.shape)
         if y_train.shape[0] % self.n_update == 0:
-            self.rf_models[budget] = RandomForest()
+            self.rf_models[budget] = RandomForest(num_trees=100)
             self.rf_models[budget].train(x_train, y_train)
-
-        print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train), budget)
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
