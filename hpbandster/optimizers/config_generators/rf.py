@@ -3,53 +3,11 @@ from functools import partial
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
-import ConfigSpace.util as util
 import numpy as np
 from hpbandster.core.base_config_generator import base_config_generator
+from hpbandster.optimizers.acquisition_functions.acquisition_functions import expected_improvement
+from hpbandster.optimizers.acquisition_functions.local_search import local_search
 from robo.models.random_forest import RandomForest
-from scipy.stats import norm
-
-
-def local_search(f, x_init, n_steps):
-    incumbent = x_init
-    incumbent_value = f(x_init.get_array()[None, :])
-    for i in range(n_steps):
-
-        f_nbs = []
-        nbs = []
-        for n in util.get_one_exchange_neighbourhood(x_init, np.random.randint(100000)):
-            nbs.append(n)
-            f_nbs.append(f(n.get_array()[None, :])[0])
-
-        # check whether we improved
-        best = np.argmax(f_nbs)
-
-        if f_nbs[best] > incumbent_value:
-
-            incumbent = nbs[best]
-            incumbent_value = f_nbs[best]
-            # jump to the next neighbour
-            x_init = nbs[best]
-        else:
-            # in case we converged, stop the local search
-            break
-
-    return incumbent, incumbent_value
-
-
-def lcb(candidates, model):
-    mu, var = model.predict(candidates)
-    return -(mu[0] - np.sqrt(var[0]))
-
-
-def expected_improvement(candidates, model, y_star):
-    mu, var = model.predict(candidates)
-
-    s = np.sqrt(var)
-    diff = (y_star - mu) / s
-    f = s * (diff * norm.cdf(diff) + norm.pdf(diff))
-
-    return f
 
 
 class RF(base_config_generator):
