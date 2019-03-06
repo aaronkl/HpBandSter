@@ -5,7 +5,7 @@ from hpbandster.optimizers.config_generators.rf import RF as CG_H2BO
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
-class RFHB(Master):
+class RFHB2BO(Master):
     def __init__(self,
                  configspace=None,
                  eta=3, min_budget=0.01, max_budget=1,
@@ -106,11 +106,31 @@ class RFHB(Master):
                     corresponding number of configurations
         """
 
-        # number of 'SH rungs'
-        s = self.max_SH_iter - 1 - (iteration % self.max_SH_iter)
-        # number of configurations in that bracket
-        n0 = int(np.floor((self.max_SH_iter) / (s + 1)) * self.eta ** s)
-        ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
+        min_budget = max(self.min_budget, self.config_generator.largest_budget_with_model())
+        max_budget = self.max_budget
+        eta = self.eta
 
-        return (SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
+        if min_budget == max_budget:
+            self.config_generator.n_update = 1
+        # precompute some HB stuff
+        max_SH_iter = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
+        budgets = max_budget * np.power(eta, -np.linspace(max_SH_iter - 1, 0, max_SH_iter))
+
+        # number of 'SH rungs'
+        s = max_SH_iter - 1
+        # number of configurations in that bracket
+        n0 = int(np.floor((self.max_SH_iter) / (s + 1)) * eta ** s)
+        ns = np.array([max(int(n0 * (eta ** (-i))), 1) for i in range(s + 1)])
+
+        while (ns * budgets[-s - 1:]).sum() <= self.budget_per_iteration:
+            n0 += 1
+            ns = np.array([max(int(n0 * (eta ** (-i))), 1) for i in range(s + 1)])
+
+        n0 -= 1
+        ns = np.array([max(int(n0 * (eta ** (-i))), 1) for i in range(s + 1)])
+
+        assert (ns * budgets[
+                     -s - 1:]).sum() <= self.budget_per_iteration, 'Sampled iteration exceeds the budget per iteration!'
+
+        return (SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=budgets,
                                   config_sampler=self.config_generator.get_config, **iteration_kwargs))
