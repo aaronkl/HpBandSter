@@ -1,7 +1,7 @@
 import numpy as np
 
 from hpbandster.core.master import Master
-from hpbandster.optimizers.config_generators.rf import RF as CG_H2BO
+from hpbandster.optimizers.config_generators.rf import RFCG
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
@@ -10,7 +10,7 @@ class RFHB(Master):
                  configspace=None,
                  eta=3, min_budget=0.01, max_budget=1,
                  min_points_in_model=None, top_n_percent=15,
-                 num_samples=32, random_fraction=1 / 3,
+                 num_samples=32, random_fraction=1 / 3, acquisition_func="ei",
                  **kwargs
                  ):
         """
@@ -57,12 +57,12 @@ class RFHB(Master):
         if configspace is None:
             raise ValueError("You have to provide a valid CofigSpace object")
 
-        cg = CG_H2BO(configspace=configspace,
-                     min_points_in_model=min_points_in_model,
-                     top_n_percent=top_n_percent,
-                     num_samples=num_samples,
-                     random_fraction=random_fraction,
-                     )
+        cg = RFCG(configspace=configspace,
+                  min_points_in_model=min_points_in_model,
+                  top_n_percent=top_n_percent,
+                  num_samples=num_samples,
+                  acquisition_func=acquisition_func,
+                  random_fraction=random_fraction)
 
         super().__init__(config_generator=cg, **kwargs)
 

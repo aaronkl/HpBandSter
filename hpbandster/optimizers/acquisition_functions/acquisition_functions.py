@@ -15,3 +15,9 @@ def expected_improvement(candidates, model, y_star):
     f = s * (diff * stats.norm.cdf(diff) + stats.norm.pdf(diff))
 
     return f
+
+
+def thompson_sampling(candidates, model, idx):
+    samples = model.predict_single(candidates, sample_index=idx)[0][0]
+
+    return np.array([-samples])

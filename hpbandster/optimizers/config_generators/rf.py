@@ -5,13 +5,33 @@ import ConfigSpace
 import ConfigSpace.hyperparameters
 import numpy as np
 from hpbandster.core.base_config_generator import base_config_generator
-from hpbandster.optimizers.acquisition_functions.acquisition_functions import expected_improvement
+from hpbandster.optimizers.acquisition_functions.acquisition_functions import expected_improvement, thompson_sampling
 from hpbandster.optimizers.acquisition_functions.local_search import local_search
-from robo.models.random_forest import RandomForest
+# from robo.models.random_forest import RandomForest
+from sklearn.ensemble import RandomForestRegressor
 
 
-class RF(base_config_generator):
-    def __init__(self, configspace, eta=3, min_budget=0.01, max_budget=1,
+class WrapperRF(object):
+
+    def __init__(self, X, y, n_trees=100):
+        self.rf = RandomForestRegressor(n_estimators=n_trees)
+        self.rf.fit(X, y)
+
+    def predict(self, X_test):
+        mean = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
+        var = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
+
+        for i, tree in enumerate(self.rf.estimators_):
+            mean[i] = tree.predict(X_test)
+            var[i] = tree.predict(X_test)
+        return np.mean(mean, axis=0), np.mean(var, axis=0)
+
+    def predict_single(self, X_test, sample_index):
+        return self.rf.estimators_[sample_index].predict(X_test)
+
+
+class RFCG(base_config_generator):
+    def __init__(self, configspace, acquisition_func="ei",
                  min_points_in_model=None, top_n_percent=15,
                  num_samples=32, random_fraction=1 / 3, **kwargs):
         """
@@ -43,6 +63,7 @@ class RF(base_config_generator):
         self.rf_models = dict()
         self.is_training = False
         self.n_update = 1
+        self.acquisition_func = acquisition_func
 
     def largest_budget_with_model(self):
         if len(self.rf_models) == 0:
@@ -78,15 +99,14 @@ class RF(base_config_generator):
             try:
                 # sample from largest budget
                 budget = max(self.rf_models.keys())
-                # Thompson sampling
-                # if args.acquisition == "ts":
-                # idx = np.random.randint(len(self.rf_models[budget].sampled_weights))
-                # acquisition = partial(thompson_sampling, model=self.rf_models[budget], idx=idx)
+                if self.acquisition_func == "ts":
+                    idx = np.random.randint(len(self.rf_models[budget].sampled_weights))
+                    acquisition = partial(thompson_sampling, model=self.rf_models[budget], idx=idx)
                 # elif args.acquisition == "ucb":
                 # acquisition = partial(lcb, model=self.rf_models[budget])
-                # elif args.acquisition == "ei":
-                acquisition = partial(expected_improvement, model=self.rf_models[budget],
-                                      y_star=np.min(self.rf_models[budget].y))
+                elif self.acquisition_func == "ei":
+                    acquisition = partial(expected_improvement, model=self.rf_models[budget],
+                                          y_star=np.min(self.rf_models[budget].y))
 
                 candidates = []
                 cand_values = []
@@ -219,8 +239,7 @@ class RF(base_config_generator):
         y_train = np.array(l)
 
         if y_train.shape[0] % self.n_update == 0:
-            self.rf_models[budget] = RandomForest(num_trees=100)
-            self.rf_models[budget].train(x_train, y_train)
+            self.rf_models[budget] = WrapperRF(x_train, y_train, 100)
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
