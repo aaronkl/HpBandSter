@@ -18,13 +18,11 @@ class WrapperRF(object):
         self.rf.fit(X, y)
 
     def predict(self, X_test):
-        mean = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
-        var = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
+        predictions = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
 
         for i, tree in enumerate(self.rf.estimators_):
-            mean[i] = tree.predict(X_test)
-            var[i] = tree.predict(X_test)
-        return np.mean(mean, axis=0), np.mean(var, axis=0)
+            predictions[i] = tree.predict(X_test)
+        return np.mean(predictions, axis=0), np.var(predictions, axis=0)
 
     def predict_single(self, X_test, sample_index):
         return self.rf.estimators_[sample_index].predict(X_test)
