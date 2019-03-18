@@ -25,7 +25,8 @@ class WrapperRF(object):
         return np.mean(predictions, axis=0), np.var(predictions, axis=0)
 
     def predict_single(self, X_test, sample_index):
-        return self.rf.estimators_[sample_index].predict(X_test)
+        f = self.rf.estimators_[sample_index].predict(X_test)
+        return f[:, None]
 
 
 class RFCG(base_config_generator):
@@ -94,47 +95,46 @@ class RFCG(base_config_generator):
             info_dict['model_based_pick'] = False
 
         if sample is None:
-            try:
-                # sample from largest budget
-                budget = max(self.rf_models.keys())
-                if self.acquisition_func == "ts":
-                    idx = np.random.randint(len(self.rf_models[budget].sampled_weights))
-                    acquisition = partial(thompson_sampling, model=self.rf_models[budget], idx=idx)
-                # elif args.acquisition == "ucb":
-                # acquisition = partial(lcb, model=self.rf_models[budget])
-                elif self.acquisition_func == "ei":
-                    acquisition = partial(expected_improvement, model=self.rf_models[budget],
-                                          y_star=np.min(self.rf_models[budget].y))
+            # try:
+            # sample from largest budget
+            budget = max(self.rf_models.keys())
+            if self.acquisition_func == "ts":
+                idx = np.random.randint(len(self.rf_models[budget].rf.estimators_))
+                acquisition = partial(thompson_sampling, model=self.rf_models[budget], idx=idx)
+            # elif args.acquisition == "ucb":
+            # acquisition = partial(lcb, model=self.rf_models[budget])
+            elif self.acquisition_func == "ei":
+                acquisition = partial(expected_improvement, model=self.rf_models[budget],
+                                      y_star=np.min(self.rf_models[budget].y))
+            candidates = []
+            cand_values = []
+            for n in range(10):
+                x_new, acq_val = local_search(acquisition,
+                                              x_init=self.configspace.sample_configuration(),
+                                              n_steps=10)
+                candidates.append(x_new)
+                cand_values.append(acq_val)
 
-                candidates = []
-                cand_values = []
-                for n in range(10):
-                    x_new, acq_val = local_search(acquisition,
-                                                  x_init=self.configspace.sample_configuration(),
-                                                  n_steps=10)
-                    candidates.append(x_new)
-                    cand_values.append(acq_val)
+            best = np.argmax(cand_values)
+            sample = candidates[best]
 
-                best = np.argmax(cand_values)
-                sample = candidates[best]
+            sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
+                configuration_space=self.configspace,
+                configuration=sample.get_dictionary()
+            )
+            info_dict['model_based_pick'] = True
 
-                sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
-                    configuration_space=self.configspace,
-                    configuration=sample.get_dictionary()
-                )
-                info_dict['model_based_pick'] = True
-
-            except Exception as e:
-                self.logger.warning(("=" * 50 + "\n") * 3 + \
-                                    "Error sampling a configuration!\n" + \
-                                    "\n here is a traceback:" + \
-                                    traceback.format_exc())
-
-                for b, l in self.losses.items():
-                    self.logger.debug("budget: {}\nlosses:{}".format(b, l))
-
-                sample = self.configspace.sample_configuration()
-                info_dict['model_based_pick'] = False
+            # except Exception as e:
+            #     self.logger.warning(("=" * 50 + "\n") * 3 + \
+            #                         "Error sampling a configuration!\n" + \
+            #                         "\n here is a traceback:" + \
+            #                         traceback.format_exc())
+            #
+            #     for b, l in self.losses.items():
+            #         self.logger.debug("budget: {}\nlosses:{}".format(b, l))
+            #
+            #     sample = self.configspace.sample_configuration()
+            #     info_dict['model_based_pick'] = False
 
         return sample.get_dictionary(), info_dict
 
