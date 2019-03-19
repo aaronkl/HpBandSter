@@ -16,6 +16,8 @@ class WrapperRF(object):
     def __init__(self, X, y, n_trees=100):
         self.rf = RandomForestRegressor(n_estimators=n_trees)
         self.rf.fit(X, y)
+        self.X = X
+        self.y = y
 
     def predict(self, X_test):
         predictions = np.zeros([len(self.rf.estimators_), X_test.shape[0]])
