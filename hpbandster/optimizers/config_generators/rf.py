@@ -190,7 +190,7 @@ class RFCG(base_config_generator):
             # One could skip crashed results, but we decided
             # assign a +inf loss and count them as bad configurations
             # TODO: this might be a potential issue with BNNs
-            loss = np.inf
+            loss = 1000
         else:
             loss = job.result["loss"]
 
