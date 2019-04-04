@@ -1,7 +1,7 @@
 import numpy as np
 
 from hpbandster.core.master import Master
-from hpbandster.optimizers.config_generators.h2bnn import H2BNN as CG_H2BO
+from hpbandster.optimizers.config_generators.bnns import BNNCG
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
@@ -9,9 +9,8 @@ class H2BNN(Master):
     def __init__(self,
                  configspace=None,
                  eta=3, min_budget=0.01, max_budget=1,
-                 min_points_in_model=None, top_n_percent=15,
-                 num_samples=32, random_fraction=1 / 3, bandwidth_factor=1,
-                 min_bandwidth=1e-3, bw_estimator='scott', fully_dimensional=True,
+                 min_points_in_model=None, top_n_percent=15, random_fraction=1 / 3,
+                 num_samples=32, acquisition_func="ts",
                  **kwargs
                  ):
         """
@@ -58,15 +57,13 @@ class H2BNN(Master):
         if configspace is None:
             raise ValueError("You have to provide a valid CofigSpace object")
 
-        cg = CG_H2BO(configspace=configspace,
-                     min_points_in_model=min_points_in_model,
-                     top_n_percent=top_n_percent,
-                     num_samples=num_samples,
-                     random_fraction=random_fraction,
-                     bw_estimator=bw_estimator,
-                     min_bandwidth=min_bandwidth,
-                     fully_dimensional=fully_dimensional
-                     )
+        cg = BNNCG(configspace=configspace,
+                   min_points_in_model=min_points_in_model,
+                   top_n_percent=top_n_percent,
+                   num_samples=num_samples,
+                   random_fraction=random_fraction,
+                   acquisition_func=acquisition_func
+                   )
 
         super().__init__(config_generator=cg, **kwargs)
 
@@ -92,9 +89,7 @@ class H2BNN(Master):
             'top_n_percent': top_n_percent,
             'num_samples': num_samples,
             'random_fraction': random_fraction,
-            'min_bandwidth': min_bandwidth,
-            'bw_estimator': bw_estimator,
-            'fully_dimensional': fully_dimensional,
+            'acquisition_func': acquisition_func,
         })
 
     def get_next_iteration(self, iteration, iteration_kwargs={}):

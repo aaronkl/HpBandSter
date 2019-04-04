@@ -1,7 +1,3 @@
-import collections
-import random
-import traceback
-from copy import deepcopy
 from functools import partial
 
 import ConfigSpace
@@ -13,88 +9,8 @@ import torch.nn as nn
 from pybnn.bohamiann import Bohamiann
 
 from hpbandster.core.base_config_generator import base_config_generator
-
-
-def thompson_sampling(candidates, model, idx):
-    f = model.predict_single(candidates, sample_index=idx)
-    return f[0][0]
-
-
-def lcb(candidates, model):
-    mu, var = model.predict(candidates)
-    return mu[0] - np.sqrt(var[0])
-
-
-class Model(object):
-    def __init__(self):
-        self.arch = None
-        self.accuracy = None
-
-    def __str__(self):
-        """Prints a readable version of this bitstring."""
-        return '{0:b}'.format(self.arch)
-
-
-def mutate_arch(parent_arch, cs):
-    # pick random dimension
-    dim = np.random.randint(len(cs.get_hyperparameters()))
-    hyper = cs.get_hyperparameters()[dim]
-
-    if type(hyper) == ConfigSpace.OrdinalHyperparameter:
-        choices = list(hyper.sequence)
-    else:
-        choices = list(hyper.choices)
-    # drop current values from potential choices
-    choices.remove(parent_arch[hyper.name])
-
-    # flip hyperparameter
-    idx = np.random.randint(len(choices))
-
-    child_arch = deepcopy(parent_arch)
-    child_arch[hyper.name] = choices[idx]
-    return child_arch
-
-
-def regularized_evolution(acq, cs, cycles, population_size, sample_size):
-    population = collections.deque()
-    history = []  # Not used by the algorithm, only used to report results.
-
-    # Initialize the population with random models.
-    while len(population) < population_size:
-        model = Model()
-        model.arch = cs.sample_configuration()
-        model.accuracy = acq(model.arch.get_array()[None, :])
-        population.append(model)
-        history.append(model)
-
-    # Carry out evolution in cycles. Each cycle produces a model and removes
-    # another.
-    while len(history) < cycles:
-        # Sample randomly chosen models from the current population.
-        sample = []
-        while len(sample) < sample_size:
-            # Inefficient, but written this way for clarity. In the case of neural
-            # nets, the efficiency of this line is irrelevant because training neural
-            # nets is the rate-determining step.
-            candidate = random.choice(list(population))
-            sample.append(candidate)
-
-        # The parent is the best model in the sample.
-        parent = min(sample, key=lambda i: i.accuracy)
-
-        # Create the child model and store it.
-        child = Model()
-        child.arch = mutate_arch(parent.arch, cs)
-        child.accuracy = acq(child.arch.get_array()[None, :])
-        population.append(child)
-        history.append(child)
-
-        # Remove the oldest model.
-        population.popleft()
-    cands_value = [i.accuracy for i in history]
-    best = np.argmin(cands_value)
-    x_new = history[best].arch
-    return x_new
+from hpbandster.optimizers.acquisition_functions.acquisition_functions import expected_improvement, thompson_sampling
+from hpbandster.optimizers.acquisition_functions.local_search import local_search
 
 
 def get_default_network(input_dimensionality: int) -> torch.nn.Module:
@@ -123,10 +39,9 @@ def get_default_network(input_dimensionality: int) -> torch.nn.Module:
     ).apply(init_weights)
 
 
-class SingleBNNs(base_config_generator):
-    def __init__(self, configspace, min_points_in_model=None,
+class BNNCG(base_config_generator):
+    def __init__(self, configspace, min_points_in_model=None, acquisition_func="ei",
                  top_n_percent=15, num_samples=64, random_fraction=1 / 3,
-                 min_bandwidth=1e-3, bw_estimator='scott', fully_dimensional=True,
                  **kwargs):
         """
             Fits for each given budget a kernel density estimator on the best N percent of the
@@ -147,29 +62,17 @@ class SingleBNNs(base_config_generator):
                 number of samples drawn to optimize EI via sampling
             random_fraction: float
                 fraction of random configurations returned
-            bw_estimator: string
-                how the bandwidths is estimated. Possible values are 'scott' and 'mlcv' for maximum likelihood estimation
-            min_bandwidth: float
-                to keep diversity, even when all (good) samples have the same value for one of the parameters,
-                a minimum bandwidth (Default: 1e-3) is used instead of zero.
-            fully_dimensional: bool
-                if true, the KDE is uses factored kernel across all dimensions, otherwise the PDF is a product of 1d PDFs
+
 
         """
         super().__init__(**kwargs)
         self.top_n_percent = top_n_percent
         self.configspace = configspace
-        self.bw_estimator = bw_estimator
-        self.min_bandwidth = min_bandwidth
-        self.fully_dimensional = fully_dimensional
+        self.acquisition_func = acquisition_func
 
         self.min_points_in_model = min_points_in_model
         if min_points_in_model is None:
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
-
-        # if self.min_points_in_model < len(self.configspace.get_hyperparameters())+1:
-        #	self.logger.warning('Invalid min_points_in_model value. Setting it to %i'%(len(self.configspace.get_hyperparameters())+1))
-        #	self.min_points_in_model =len(self.configspace.get_hyperparameters())+1
 
         self.num_samples = num_samples
         self.random_fraction = random_fraction
@@ -179,7 +82,7 @@ class SingleBNNs(base_config_generator):
 
         self.bnn_models = dict()
         self.is_training = False
-        self.n_update = 10
+        self.n_update = 1
 
     def largest_budget_with_model(self):
         if len(self.bnn_models) == 0:
@@ -207,42 +110,39 @@ class SingleBNNs(base_config_generator):
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
-        if len(self.bnn_models.keys()) == 0: # or np.random.rand() < self.random_fraction:
+        if len(self.bnn_models.keys()) == 0:  # or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
             info_dict['model_based_pick'] = False
 
         if sample is None:
-            try:
-                # sample from largest budget
-                budget = max(self.bnn_models.keys())
-                # Thompson sampling
-                # if args.acquisition == "ts":
+            # try:
+            # sample from largest budget
+            budget = max(self.bnn_models.keys())
+            if self.acquisition_func == "ts":
                 idx = np.random.randint(len(self.bnn_models[budget].sampled_weights))
                 acquisition = partial(thompson_sampling, model=self.bnn_models[budget], idx=idx)
-                # elif args.acquisition == "ucb":
-                # acquisition = partial(lcb, model=self.bnn_models[budget])
-                # elif args.acquisition == "ei":
-                # acquisition = partial(expected_improvement, model=bnn, y_star=np.argmax(y))
-                sample = regularized_evolution(acq=acquisition, cs=self.configspace,
-                                               cycles=1000, population_size=100, sample_size=10)
+            # elif args.acquisition == "ucb":
+            # acquisition = partial(lcb, model=self.bnn_models[budget])
+            elif self.acquisition_func == "ei":
+                acquisition = partial(expected_improvement, model=self.bnn_models[budget],
+                                      y_star=np.min(self.bnn_models[budget].y))
+            candidates = []
+            cand_values = []
+            for n in range(10):
+                x_new, acq_val = local_search(acquisition,
+                                              x_init=self.configspace.sample_configuration(),
+                                              n_steps=10)
+                candidates.append(x_new)
+                cand_values.append(acq_val)
 
-                sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
-                    configuration_space=self.configspace,
-                    configuration=sample.get_dictionary()
-                )
-                info_dict['model_based_pick'] = True
+            best = np.argmax(cand_values)
+            sample = candidates[best]
 
-            except Exception as e:
-                self.logger.warning(("=" * 50 + "\n") * 3 + \
-                                    "Error sampling a configuration!\n" + \
-                                    "\n here is a traceback:" + \
-                                    traceback.format_exc())
-
-                for b, l in self.losses.items():
-                    self.logger.debug("budget: {}\nlosses:{}".format(b, l))
-
-                sample = self.configspace.sample_configuration()
-                info_dict['model_based_pick'] = False
+            sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
+                configuration_space=self.configspace,
+                configuration=sample.get_dictionary()
+            )
+            info_dict['model_based_pick'] = True
 
         return sample.get_dictionary(), info_dict
 
@@ -344,17 +244,13 @@ class SingleBNNs(base_config_generator):
         l = [li[0] for li in self.losses[budget]]
         y_train = np.array(l)
 
-        print(y_train.shape, x_train.shape)
         if y_train.shape[0] % self.n_update == 0:
             self.bnn_models[budget] = Bohamiann(get_network=get_default_network, use_double_precision=False)
 
-            self.bnn_models[budget].train(x_train, y_train, verbose=True, lr=1e-5,
-                                          num_burn_in_steps=x_train.shape[0] * 100,
-                                          num_steps=x_train.shape[0] * 100 + 10000, keep_every=100,
+            self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
+                                          num_burn_in_steps=x_train.shape[0] * 10,
+                                          num_steps=x_train.shape[0] * 10 + 200, keep_every=10,
                                           continue_training=False)
-
-        print(np.min(y_train), np.max(y_train), np.mean(y_train), np.std(y_train), budget)
-
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
             'done building a new model for budget %f based on %d data points \n\n\n\n\n' % (
