@@ -245,12 +245,20 @@ class BNNCG(base_config_generator):
         y_train = np.array(l)
 
         if y_train.shape[0] % self.n_update == 0:
-            self.bnn_models[budget] = Bohamiann(get_network=get_default_network, use_double_precision=False)
 
-            self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
+            if not budget in self.bnn_models:
+                self.bnn_models[budget] = Bohamiann(get_network=get_default_network, use_double_precision=True)
+
+                self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
                                           num_burn_in_steps=x_train.shape[0] * 10,
                                           num_steps=x_train.shape[0] * 10 + 200, keep_every=10,
                                           continue_training=False)
+
+            else:
+                self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
+                                          num_burn_in_steps=0,
+                                          num_steps=200, keep_every=10,
+                                          continue_training=True)
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
             'done building a new model for budget %f based on %d data points \n\n\n\n\n' % (
