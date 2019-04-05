@@ -1,25 +1,15 @@
-import os
-import time
-import math
-import copy
-import logging
 
 import numpy as np
-
-import ConfigSpace as CS
 
 from hpbandster.core.master import Master
 from hpbandster.optimizers.iterations import SuccessiveHalving
 from hpbandster.optimizers.config_generators.lcnet import LCNetWrapper as CG_LCNet
-# from hpbandster.optimizers.config_generators import RandomSampling
 
 
 class LCNet(Master):
-    def __init__(self, configspace=None,
+    def __init__(self, configspace=None, acquisition="ts",
                  eta=3, min_budget=0.01, max_budget=1,
-                 min_points_in_model=None, top_n_percent=15,
-                 num_samples=64, random_fraction=1 / 3, bandwidth_factor=3,
-                 min_bandwidth=1e-3, n_points=200, n_candidates=1024, delta=1,
+                 n_points=200, n_candidates=1024, delta=1,
                  **kwargs):
         """
 
@@ -66,6 +56,7 @@ class LCNet(Master):
                       max_budget=max_budget,
                       n_points=n_points,
                       n_candidates=n_candidates,
+                      acquisition=acquisition,
                       delta=delta)
 
         # cg = RandomSampling(configspace)
@@ -87,12 +78,6 @@ class LCNet(Master):
             'max_budget': max_budget,
             'budgets': self.budgets,
             'max_SH_iter': self.max_SH_iter,
-            'min_points_in_model': min_points_in_model,
-            'top_n_percent': top_n_percent,
-            'num_samples': num_samples,
-            'random_fraction': random_fraction,
-            'bandwidth_factor': bandwidth_factor,
-            'min_bandwidth': min_bandwidth
         })
 
     def get_next_iteration(self, iteration, iteration_kwargs={}):
