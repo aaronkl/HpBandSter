@@ -1,13 +1,12 @@
+from functools import partial
+
 import ConfigSpace
 import numpy as np
-import threading
-
-from functools import partial
 from pybnn.lcnet import LCNet
 
 from hpbandster.core.base_config_generator import base_config_generator
-from hpbandster.optimizers.acquisition_functions.local_search import local_search
 from hpbandster.optimizers.acquisition_functions.acquisition_functions import thompson_sampling
+from hpbandster.optimizers.acquisition_functions.local_search import local_search
 
 
 def projected_thompson_sampling(candidates, model, idx):
@@ -120,7 +119,6 @@ class LCNetWrapper(base_config_generator):
             candidates = []
             cand_values = []
             for n in range(10):
-
                 x_new, acq_val = local_search(acquisition,
                                               x_init=self.config_space.sample_configuration(),
                                               n_steps=10)
@@ -149,7 +147,6 @@ class LCNetWrapper(base_config_generator):
             #     info_dict['model_based_pick'] = False
 
         return sample.get_dictionary(), info_dict
-
 
     def new_result(self, job):
         """
@@ -184,10 +181,9 @@ class LCNetWrapper(base_config_generator):
 
         # Smooth learning curve
         lc = smoothing(job.result["info"]["learning_curve"])
-
         # Flip learning curves since LC-Net wants increasing curves
-        lc_new = [1 - y for y in lc]
-
+        # lc_new = [1 - y for y in lc]
+        lc_new = [-y for y in lc]
         if self.train is None:
             self.train = x_new
             self.train_targets = lc_new
@@ -196,13 +192,13 @@ class LCNetWrapper(base_config_generator):
             self.train_targets = np.append(self.train_targets, lc_new, axis=0)
 
         if self.train.shape[0] >= self.n_points:
-
             # self.lock.acquire()
             y_min = np.min(self.train_targets)
             y_max = np.max(self.train_targets)
-
+            #
             train_targets = (self.train_targets - y_min) / (y_max - y_min)
-            self.model.train(self.train, train_targets, num_burn_in_steps=100, num_steps=1001, keep_every=10, verbose=True)
+            self.model.train(self.train, train_targets, num_burn_in_steps=100, num_steps=501, keep_every=10,
+                             verbose=True)
             self.is_trained = True
             # self.counter = 0
             # self.lock.release()
