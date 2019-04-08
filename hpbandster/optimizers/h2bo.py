@@ -11,7 +11,8 @@ import ConfigSpace as CS
 
 from hpbandster.core.master import Master
 from hpbandster.optimizers.iterations import SuccessiveHalving
-from hpbandster.optimizers.config_generators.h2bo import H2BO as CG_H2BO
+# from hpbandster.optimizers.config_generators.h2bo import H2BO as CG_H2BO
+from hpbandster.optimizers.config_generators.bohb import BOHB as CG_BOHB
 
 class H2BO(Master):
 	def __init__(self,
@@ -68,17 +69,25 @@ class H2BO(Master):
 		if configspace is None:
 			raise ValueError("You have to provide a valid CofigSpace object")
 
-
-
-		cg = CG_H2BO( configspace = configspace,
+		cg = CG_BOHB( configspace = configspace,
 					min_points_in_model = min_points_in_model,
 					top_n_percent=top_n_percent,
 					num_samples = num_samples,
 					random_fraction=random_fraction,
-					bw_estimator=bw_estimator,
+					# bw_estimator=bw_estimator,
 					min_bandwidth = min_bandwidth,
-					fully_dimensional=fully_dimensional
+					# fully_dimensional=fully_dimensional
 					)
+
+		# cg = CG_H2BO( configspace = configspace,
+		# 			min_points_in_model = min_points_in_model,
+		# 			top_n_percent=top_n_percent,
+		# 			num_samples = num_samples,
+		# 			random_fraction=random_fraction,
+		# 			bw_estimator=bw_estimator,
+		# 			min_bandwidth = min_bandwidth,
+		# 			fully_dimensional=fully_dimensional
+		# 			)
 
 		super().__init__(config_generator=cg, **kwargs)
 
