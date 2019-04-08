@@ -50,7 +50,7 @@ class LCNetWrapper(base_config_generator):
         super(LCNetWrapper, self).__init__(**kwargs)
 
         self.n_candidates = n_candidates
-        self.model = LCNet(print_every_n_steps=500)
+        self.model = LCNet(print_every_n_steps=100)
 
         self.acquisition = acquisition
         self.config_space = configspace

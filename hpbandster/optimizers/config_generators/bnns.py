@@ -135,6 +135,8 @@ class BNNCG(base_config_generator):
                 candidates.append(x_new)
                 cand_values.append(acq_val)
 
+            print(candidates)
+            print(cand_values)
             best = np.argmax(cand_values)
             sample = candidates[best]
 
@@ -249,13 +251,13 @@ class BNNCG(base_config_generator):
             if not budget in self.bnn_models:
                 self.bnn_models[budget] = Bohamiann(get_network=get_default_network, use_double_precision=True)
 
-                self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
+                self.bnn_models[budget].train(x_train, y_train, verbose=True, lr=1e-2,
                                           num_burn_in_steps=x_train.shape[0] * 10,
                                           num_steps=x_train.shape[0] * 10 + 200, keep_every=10,
                                           continue_training=False)
 
             else:
-                self.bnn_models[budget].train(x_train, y_train, verbose=False, lr=1e-2,
+                self.bnn_models[budget].train(x_train, y_train, verbose=True, lr=1e-2,
                                           num_burn_in_steps=0,
                                           num_steps=200, keep_every=10,
                                           continue_training=True)

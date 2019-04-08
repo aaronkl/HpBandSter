@@ -24,6 +24,7 @@ def local_search(f, x_init, n_steps):
             x_init = nbs[best]
         else:
             # in case we converged, stop the local search
+            print("Local search performed %d steps" % i)
             break
 
     return incumbent, incumbent_value
