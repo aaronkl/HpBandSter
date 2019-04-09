@@ -11,7 +11,7 @@ from hpbandster.optimizers.acquisition_functions.local_search import local_searc
 
 def projected_thompson_sampling(candidates, model, idx):
     projected_candidates = np.concatenate((candidates, np.ones([candidates.shape[0], 1])), axis=1)
-    return thompson_sampling(projected_candidates, model, idx)
+    return - thompson_sampling(projected_candidates, model, idx)
 
 
 def smoothing(lc):
@@ -180,10 +180,11 @@ class LCNetWrapper(base_config_generator):
         x_new = np.concatenate((x_new, t_idx[:, None]), axis=1)
 
         # Smooth learning curve
-        lc = smoothing(job.result["info"]["learning_curve"])
+        # lc = smoothing(job.result["info"]["learning_curve"])
+        lc = job.result["info"]["learning_curve"]
         # Flip learning curves since LC-Net wants increasing curves
         # lc_new = [1 - y for y in lc]
-        lc_new = [-y for y in lc]
+        lc_new = [-np.log(y) for y in lc]
         if self.train is None:
             self.train = x_new
             self.train_targets = lc_new
