@@ -193,6 +193,9 @@ class RFCG(base_config_generator):
             loss = 1000
         else:
             loss = job.result["loss"]
+        if not np.isfinite(loss):
+            print(loss)
+            loss = 1000
 
         budget = job.kwargs["budget"]
 
