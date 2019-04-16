@@ -44,10 +44,9 @@ class MyWorker(Worker):
                     'loss': float(res),  # this is the a mandatory field to run hyperband
                     'info': res  # can be used for any user-defined information - also mandatory
                 })
-    
+
     @staticmethod
     def get_configspace():
         config_space = CS.ConfigurationSpace()
         config_space.add_hyperparameter(CS.UniformFloatHyperparameter('x', lower=0, upper=1))
         return(config_space)
-
