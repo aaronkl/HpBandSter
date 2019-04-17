@@ -12,9 +12,8 @@ import hpbandster.core.nameserver as hpns
 from hpbandster.core.worker import Worker
 
 #from hpolib.benchmarks.surrogates.paramnet import SurrogateReducedParamNetTime as mlp_surrogate
-from hpolib.benchmarks.surrogates.paramnet import SurrogateParamNetTime as mlp_surrogate
+from hpolib.benchmarks.surrogates.paramnet import SurrogateParamNet as mlp_surrogate
 
-import pdb; pdb.set_trace()
 dataset = sys.argv[1]
 run_id = int(sys.argv[2])
 
@@ -27,7 +26,6 @@ mlp_budgets = {  # (min, max)-budget for the different data sets
     'poker': (4, 50),
 }
 
-import pdb; pdb.set_trace()
 
 b = mlp_surrogate(dataset=dataset)#, path=surrogate_path)
 
@@ -76,7 +74,7 @@ for i in range(1):
 HB = VRNN(configspace=config_space,
            run_id=hb_run_id,
            eta=3, min_budget=min_budget, max_budget=max_budget,  # HB parameters
-           path='./model_vrnn', num_samples=100,
+                   path='/home/gargiani/HpBandSter/model_vrnn', num_samples=1000,
            nameserver=ns_host,
            nameserver_port=ns_port,
            ping_interval=10)
@@ -98,8 +96,8 @@ for c in results.get_incumbent_trajectory()["config_ids"]:
 
 res['wall_clock_time'] = wall_clock_time
 
-subdir = "vdrnn"
+subdir = "samples_1000_vrnn"
 os.makedirs(os.path.join(output_path, dataset, subdir), exist_ok=True)
-fh = open(os.path.join(output_path, dataset, subdir, 'vdrnn_%d.json' % run_id), 'w')
+fh = open(os.path.join(output_path, dataset, subdir, 'samples_1000_vrnn_%d.json' % run_id), 'w')
 json.dump(res, fh)
 fh.close()
