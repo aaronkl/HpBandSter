@@ -101,11 +101,12 @@ class VRNNWrapper(base_config_generator):
 
 		"""
 
-        self.logger.debug('start sampling a new configuration.')
-        info_dict = {}
-        info_dict['model_based_pick'] = False
+		self.logger.debug('start sampling a new configuration.')
+		info_dict = {}
+		info_dict['model_based_pick'] = False
 
-        return self.configspace.sample_configuration().get_dictionary(), info_dict
+		return self.configspace.sample_configuration().get_dictionary(), info_dict
+
         
 		sample = None
 		info_dict = {}
