@@ -46,7 +46,7 @@ class MyWorker(Worker):
 
         c = ConfigSpace.Configuration(config_space, values=config)
 
-        r = b.objective_function(c, budget=budget)
+        r = b.objective_function(c, step=int(budget))
 
         y = r["function_value"]
 
@@ -74,7 +74,7 @@ for i in range(1):
 HB = VRNN(configspace=config_space,
            run_id=hb_run_id,
            eta=3, min_budget=min_budget, max_budget=max_budget,  # HB parameters
-                   path='/home/gargiani/HpBandSter/model_vrnn', num_samples=1000,
+                   path='/home/gargiani/HpBandSter/model_vrnn', num_samples=128,
            nameserver=ns_host,
            nameserver_port=ns_port,
            ping_interval=10)
@@ -96,8 +96,8 @@ for c in results.get_incumbent_trajectory()["config_ids"]:
 
 res['wall_clock_time'] = wall_clock_time
 
-subdir = "samples_1000_vrnn"
+subdir = "samples_128_vrnn"
 os.makedirs(os.path.join(output_path, dataset, subdir), exist_ok=True)
-fh = open(os.path.join(output_path, dataset, subdir, 'samples_1000_vrnn_%d.json' % run_id), 'w')
+fh = open(os.path.join(output_path, dataset, subdir, 'samples_128_vrnn_%d.json' % run_id), 'w')
 json.dump(res, fh)
 fh.close()
