@@ -12,7 +12,7 @@ import hpbandster.core.nameserver as hpns
 from hpbandster.core.worker import Worker
 
 #from hpolib.benchmarks.surrogates.paramnet import SurrogateReducedParamNetTime as mlp_surrogate
-from hpolib.benchmarks.surrogates.paramnet import SurrogateParamNetTime as mlp_surrogate
+from hpolib.benchmarks.surrogates.paramnet import SurrogateParamNet as mlp_surrogate
 
 import pdb; pdb.set_trace()
 dataset = sys.argv[1]
@@ -48,9 +48,12 @@ class MyWorker(Worker):
 
         c = ConfigSpace.Configuration(config_space, values=config)
 
-        r = b.objective_function(c, budget=budget)
+        r = b.objective_function(c, step=int(budget))
 
         y = r["function_value"]
+        print(c)
+        print(budget)
+        print(len(r['learning_curve']))
 
         cost = r["cost"]
 
@@ -76,7 +79,7 @@ for i in range(1):
 HB = VRNN(configspace=config_space,
            run_id=hb_run_id,
            eta=3, min_budget=min_budget, max_budget=max_budget,  # HB parameters
-           path='./model_vrnn', num_samples=100,
+           path='/home/matilde/Documents/learning_curves/vdrnn/saved_models/model_vrnn', num_samples=100,
            nameserver=ns_host,
            nameserver_port=ns_port,
            ping_interval=10)

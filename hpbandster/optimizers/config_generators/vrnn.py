@@ -11,6 +11,8 @@ import scipy.stats as sps
 import scipy.optimize as spo
 import statsmodels.api as sm
 
+import sklearn.preprocessing as preprocessing
+
 import os
 import json
 
@@ -102,10 +104,6 @@ class VRNNWrapper(base_config_generator):
 		"""
 
 		self.logger.debug('start sampling a new configuration.')
-		info_dict = {}
-		info_dict['model_based_pick'] = False
-
-		return self.configspace.sample_configuration().get_dictionary(), info_dict
 
 
 		sample = None
@@ -121,13 +119,17 @@ class VRNNWrapper(base_config_generator):
 
 		for i in range(self.num_samples):
 
-			theta = self.configspace.sample_configuration().get_array()
-			print(theta)
-			print(theta.shape)
-			print('here')
-			print(budget)
+			theta_dict = self.configspace.sample_configuration()
+
+			print(theta_dict)
+			#reshape e standardizzazione
+
+            ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
+			theta = preprocessing.scale(np.asarray([theta_dict['x6'], theta_dict['x7'], 10**(theta_dict['x0']), theta_dict['x4'],10**(theta_dict['x3']),
+										int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
+
 			# do roll out of theta until T
-			val = self.vrnn.eval(np.asarray([theta]), int(budget))[-1]
+			val = self.vrnn.eval(np.expand_dims(theta, axis=0), int(budget))[-1]
 
 			if val > best:
 				best = val
