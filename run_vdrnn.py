@@ -109,8 +109,8 @@ for yi in traj:
 res['incumbent_trajectory'] = inc_traj
 res['wall_clock_time'] = np.cumsum(wall_clock_time).tolist()
 
-subdir = "samples_128_vrnn"
+subdir = "ls"
 os.makedirs(os.path.join(output_path, dataset, subdir), exist_ok=True)
-fh = open(os.path.join(output_path, dataset, subdir, 'samples_128_vrnn_%d.json' % run_id), 'w')
+fh = open(os.path.join(output_path, dataset, subdir, 'ls_%d.json' % run_id), 'w')
 json.dump(res, fh)
 fh.close()
