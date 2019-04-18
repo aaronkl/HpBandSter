@@ -20,6 +20,47 @@ from vdrnn.vrnn_bohb import VRNN
 
 from hpbandster.core.base_config_generator import base_config_generator
 
+import ConfigSpace.util as util
+from functools import partial
+
+def local_search(f, x_init, n_steps):
+    incumbent = x_init
+    incumbent_value = f(x_init)
+    for i in range(n_steps):
+
+        f_nbs = []
+        nbs = []
+        for n in util.get_one_exchange_neighbourhood(x_init, np.random.randint(100000)):
+            nbs.append(n)
+            f_nbs.append(f(n)[0])
+
+        # check whether we improved
+        best = np.argmax(f_nbs)
+
+        if f_nbs[best] > incumbent_value:
+
+            incumbent = nbs[best]
+            incumbent_value = f_nbs[best]
+            # jump to the next neighbour
+            x_init = nbs[best]
+        else:
+            # in case we converged, stop the local search
+            print("Local search performed %d steps" % i)
+            break
+
+    return incumbent, incumbent_value
+
+
+def thompson_sampling(theta_dict, model):
+
+   ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
+    theta = preprocessing.scale(np.asarray([theta_dict['x6'], theta_dict['x7'], 10**(theta_dict['x0']), theta_dict['x4'],10**(theta_dict['x3']),
+								int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
+
+    # do roll out of theta until T
+    val = model.eval(np.expand_dims(theta, axis=0), 50)[-1]#int(budget))[-1]
+    return val
+
 
 class VRNNWrapper(base_config_generator):
 	def __init__(self, configspace,
@@ -110,31 +151,46 @@ class VRNNWrapper(base_config_generator):
 		sample = None
 		info_dict = {}
 		info_dict['model_based_pick'] = True
-
-
-		best = -np.inf
-		best_vector = None
-
-		# sample dropout mask and keep it fixed for all the configuration sample
 		self.vrnn.lstm.mask_generate(1)
+		acquisition = partial(thompson_sampling, model=self.vrnn)
 
-		for i in range(self.num_samples):
 
-			theta_dict = self.configspace.sample_configuration()
+		candidates = []
+		cand_values = []
+		for n in range(10):
+			x_new, acq_val = local_search(acquisition,
+										  x_init=self.configspace.sample_configuration(),
+										  n_steps=10)
+			candidates.append(x_new)
+			cand_values.append(acq_val)
 
-			#reshape e standardizzazione
 
-            ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
-			theta = preprocessing.scale(np.asarray([theta_dict['x6'], theta_dict['x7'], 10**(theta_dict['x0']), theta_dict['x4'],10**(theta_dict['x3']),
-										int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
+		best = np.argmax(cand_values)
 
-			# do roll out of theta until T
-			val = self.vrnn.eval(np.expand_dims(theta, axis=0), 50)[-1]#int(budget))[-1]
-
-			if val > best:
-				best = val
-				best_vector = theta_dict.get_array()#theta
-		sample = ConfigSpace.Configuration(self.configspace, vector=best_vector)
+		sample = candidates[best]
+		# best = -np.inf
+		# best_vector = None
+        #
+		# # sample dropout mask and keep it fixed for all the configuration sample
+		#
+        #
+		# for i in range(self.num_samples):
+        #
+		# 	theta_dict = self.configspace.sample_configuration()
+        #
+		# 	#reshape e standardizzazione
+        #
+         #    ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
+		# 	theta = preprocessing.scale(np.asarray([theta_dict['x6'], theta_dict['x7'], 10**(theta_dict['x0']), theta_dict['x4'],10**(theta_dict['x3']),
+		# 								int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
+        #
+		# 	# do roll out of theta until T
+		# 	val = self.vrnn.eval(np.expand_dims(theta, axis=0), 50)[-1]#int(budget))[-1]
+        #
+		# 	if val > best:
+		# 		best = val
+		# 		best_vector = theta_dict.get_array()#theta
+		# sample = ConfigSpace.Configuration(self.configspace, vector=best_vector)
 
 		return sample.get_dictionary(), info_dict
 
