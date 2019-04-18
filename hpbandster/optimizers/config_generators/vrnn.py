@@ -129,11 +129,11 @@ class VRNNWrapper(base_config_generator):
 										int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
 
 			# do roll out of theta until T
-			val = self.vrnn.eval(np.expand_dims(theta, axis=0), int(budget))[-1]
+			val = self.vrnn.eval(np.expand_dims(theta, axis=0), 50)[-1]#int(budget))[-1]
 
 			if val > best:
 				best = val
-				best_vector = theta
+				best_vector = theta_dict.get_array()#theta
 		sample = ConfigSpace.Configuration(self.configspace, vector=best_vector)
 
 		return sample.get_dictionary(), info_dict
