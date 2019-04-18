@@ -33,7 +33,7 @@ def local_search(f, x_init, n_steps):
         for n in util.get_one_exchange_neighbourhood(x_init, np.random.randint(100000)):
             nbs.append(n)
             f_nbs.append(f(n)[0])
-
+            print(len(nbs))
         # check whether we improved
         best = np.argmax(f_nbs)
 
@@ -157,7 +157,7 @@ class VRNNWrapper(base_config_generator):
 
 		candidates = []
 		cand_values = []
-		for n in range(10):
+		for n in range(1):
 			x_new, acq_val = local_search(acquisition,
 										  x_init=self.configspace.sample_configuration(),
 										  n_steps=10)
