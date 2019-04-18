@@ -7,7 +7,7 @@ import json
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from hpbandster.optimizers.vrnn import VRNN
+from hpbandster.optimizers.hyperband import HyperBand
 import hpbandster.core.nameserver as hpns
 from hpbandster.core.worker import Worker
 
@@ -38,7 +38,6 @@ output_path = './res'
 n_iters = 128
 
 config_space = b.get_configuration_space()
-
 
 traj = []
 wall_clock_time = []
@@ -76,21 +75,19 @@ for i in range(1):
     w.run(background=True)
     workers.append(w)
 
-HB = VRNN(configspace=config_space,
+HB = HyperBand(configspace=config_space,
            run_id=hb_run_id,
            eta=3, min_budget=min_budget, max_budget=max_budget,  # HB parameters
-                   path='/home/kleinaa/git/HpBandSter/model_vrnn', num_samples=128,
            nameserver=ns_host,
            nameserver_port=ns_port,
            ping_interval=10)
 
 results = HB.run(n_iters, min_n_workers=1)
-
 HB.shutdown(shutdown_workers=True)
 NS.shutdown()
 
 res = dict()
-#
+
 # res['incumbent_trajectory'] = results.get_incumbent_trajectory()['losses']
 # res['budgets'] = results.get_incumbent_trajectory()['budgets']
 # wall_clock_time = []
@@ -100,6 +97,8 @@ res = dict()
 #     wall_clock_time.append(cum_time)
 #
 # res['wall_clock_time'] = wall_clock_time
+
+
 inc_traj = []
 curr_best = np.inf
 for yi in traj:
@@ -109,8 +108,8 @@ for yi in traj:
 res['incumbent_trajectory'] = inc_traj
 res['wall_clock_time'] = np.cumsum(wall_clock_time).tolist()
 
-subdir = "samples_128_vrnn"
+subdir = "hb"
 os.makedirs(os.path.join(output_path, dataset, subdir), exist_ok=True)
-fh = open(os.path.join(output_path, dataset, subdir, 'samples_128_vrnn_%d.json' % run_id), 'w')
+fh = open(os.path.join(output_path, dataset, subdir, 'hyperband_%d.json' % run_id), 'w')
 json.dump(res, fh)
 fh.close()
