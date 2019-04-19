@@ -33,7 +33,6 @@ def local_search(f, x_init, n_steps):
         for n in util.get_one_exchange_neighbourhood(x_init, np.random.randint(100000)):
             nbs.append(n)
             f_nbs.append(f(n)[0])
-            print(len(nbs))
         # check whether we improved
         best = np.argmax(f_nbs)
 
@@ -51,14 +50,15 @@ def local_search(f, x_init, n_steps):
     return incumbent, incumbent_value
 
 
-def thompson_sampling(theta_dict, model):
+def thompson_sampling(x, model, budget, configspace):
 
-   ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
+    theta_dict = ConfigSpace.Configuration(configspace, vector=x[0, :])
+    ##########droout 0        dropout 1          initial lr        shape par         final lr frac     batch size         num layers       avg units per layer
     theta = preprocessing.scale(np.asarray([theta_dict['x6'], theta_dict['x7'], 10**(theta_dict['x0']), theta_dict['x4'],10**(theta_dict['x3']),
 								int(2**(theta_dict['x1'])), int(theta_dict['x5']), int(2**(theta_dict['x2']))]))
 
     # do roll out of theta until T
-    val = model.eval(np.expand_dims(theta, axis=0), 50)[-1]#int(budget))[-1]
+    val = model.eval(np.expand_dims(theta, axis=0), int(budget), n_samples=1)[-1]#int(budget))[-1]
     return val
 
 
@@ -152,22 +152,32 @@ class VRNNWrapper(base_config_generator):
 		info_dict = {}
 		info_dict['model_based_pick'] = True
 		self.vrnn.lstm.mask_generate(1)
-		acquisition = partial(thompson_sampling, model=self.vrnn)
-
+		acquisition = partial(thompson_sampling, model=self.vrnn, budget=budget, configspace=self.configspace)
 
 		candidates = []
 		cand_values = []
-		for n in range(1):
-			x_new, acq_val = local_search(acquisition,
-										  x_init=self.configspace.sample_configuration(),
-										  n_steps=10)
-			candidates.append(x_new)
-			cand_values.append(acq_val)
+		import time
+		st = time.time()
 
+		from robo.maximizers.direct import Direct
+		lower = np.zeros([len(self.configspace.get_hyperparameters())])
+		upper = np.ones([len(self.configspace.get_hyperparameters())])
+		maximizer = Direct(acquisition, lower, upper)
+		x = maximizer.maximize()
+		sample = ConfigSpace.Configuration(self.configspace, vector=x)
+		# import pdb; pdb.set_trace()
+		# for n in range(3):
+		# 	x_new, acq_val = local_search(acquisition,
+		# 								  x_init=self.configspace.sample_configuration(),
+		# 								  n_steps=20)
+		# 	candidates.append(x_new)
+		# 	cand_values.append(acq_val)
 
-		best = np.argmax(cand_values)
+		print(time.time() - st)
 
-		sample = candidates[best]
+		# best = np.argmax(cand_values)
+
+		# sample = candidates[best]
 		# best = -np.inf
 		# best_vector = None
         #

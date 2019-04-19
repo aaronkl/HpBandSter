@@ -18,12 +18,12 @@ dataset = sys.argv[1]
 run_id = int(sys.argv[2])
 
 mlp_budgets = {  # (min, max)-budget for the different data sets
-    'adult': (4, 50),
-    'higgs': (4, 50),
-    'letter': (4, 50),
-    'mnist': (4, 50),
-    'optdigits': (4, 50),
-    'poker': (4, 50),
+    'adult': (1, 50),
+    'higgs': (1, 50),
+    'letter': (1, 50),
+    'mnist': (1, 50),
+    'optdigits': (1, 50),
+    'poker': (1, 50),
 }
 
 
@@ -35,7 +35,7 @@ max_budget = mlp_budgets[dataset][1]
 
 output_path = './res'
 
-n_iters = 128
+n_iters = 5
 
 config_space = b.get_configuration_space()
 
@@ -78,7 +78,7 @@ for i in range(1):
 
 HB = VRNN(configspace=config_space,
            run_id=hb_run_id,
-           eta=3, min_budget=min_budget, max_budget=max_budget,  # HB parameters
+           eta=2, min_budget=min_budget, max_budget=max_budget,  # HB parameters
                    path='/home/kleinaa/git/HpBandSter/model_vrnn', num_samples=128,
            nameserver=ns_host,
            nameserver_port=ns_port,
