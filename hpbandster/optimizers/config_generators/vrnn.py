@@ -152,7 +152,7 @@ class VRNNWrapper(base_config_generator):
 		info_dict = {}
 		info_dict['model_based_pick'] = True
 		self.vrnn.lstm.mask_generate(1)
-		acquisition = partial(thompson_sampling, model=self.vrnn, budget=budget, configspace=self.configspace)
+		acquisition = partial(thompson_sampling, model=self.vrnn, budget=50, configspace=self.configspace)
 
 		candidates = []
 		cand_values = []
